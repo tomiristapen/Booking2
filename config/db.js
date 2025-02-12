@@ -3,11 +3,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const client = new Client({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_SSL ? { rejectUnauthorized: false } : false
 });
 
 client.connect()
