@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплата</title>
+    <link rel="stylesheet" href="styles2.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container">
+    <h1>Оплата</h1>
+
+    <div id="selectedSeatsSection" class="mb-4">
+        <h2>Выбранные места</h2>
+        <ul id="selectedSeatsList" class="list-group"></ul>
+    </div>
+
+    <div id="paymentFormSection" class="mt-4">
+        <h2>Детали оплаты</h2>
+        <form id="paymentForm">
+            <div class="mb-3">
+                <label for="cardNumber" class="form-label">Номер карты</label>
+                <input type="text" class="form-control" id="cardNumber" name="cardNumber" placeholder="XXXX-XXXX-XXXX-XXXX" required pattern="\d{4}-\d{4}-\d{4}-\d{4}">
+            </div>
+            <div class="mb-3">
+                <label for="cardHolderName" class="form-label">Имя владельца карты</label>
+                <input type="text" class="form-control" id="cardHolderName" name="cardHolderName" required>
+            </div>
+            <div class="mb-3">
+                <label for="expiryDate" class="form-label">Срок действия карты</label>
+                <input type="text" class="form-control" id="expiryDate" name="expiryDate" placeholder="MM/YY" required pattern="\d{2}/\d{2}">
+            </div>
+            <div class="mb-3">
+                <label for="cvv" class="form-label">CVV</label>
+                <input type="password" class="form-control" id="cvv" name="cvv" required pattern="\d{3}">
+            </div>
+            <button type="submit" class="btn btn-success">Завершить оплату</button>
+        </form>
+    </div>
+
+    <button onclick="goBack()" class="btn btn-secondary mt-3">Назад</button>
+</div>
+
+<script>
+    function goBack() {
+        window.history.back();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const selectedSeatsList = document.getElementById('selectedSeatsList');
+        const selectedSeats = JSON.parse(localStorage.getItem('selectedSeats')) || [];
+
+        if (selectedSeats.length > 0) {
+            selectedSeats.forEach(seatInfo => {
+                const li = document.createElement('li');
+                li.classList.add('list-group-item');
+                li.textContent = `Пассажир ${seatInfo.passengerIndex}: Место ${seatInfo.seat}`;
+                selectedSeatsList.appendChild(li);
+            });
+        } else {
+            selectedSeatsList.innerHTML = '<li class="list-group-item">Места не выбраны</li>';
+        }
+    });
+
+
+    function getUserIdFromToken() {
+        const token = localStorage.getItem('authToken');
+        if (!token) return null;
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.id || null;
+        } catch (e) {
+            console.error('Ошибка при разборе токена:', e);
+            return null;
+        }
+    }
+
+    async function createFlight(flightData) {
+        const response = await fetch('/api/flights', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(flightData)
+        });
+
+        if (!response.ok) throw new Error('Ошибка при создании рейса.');
+        return response.json();
+    }
+
+    async function createPassenger(passengerData) {
+        const response = await fetch('/api/passengers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(passengerData)
+        });
+
+        if (!response.ok) throw new Error('Ошибка при создании пассажира.');
+        return response.json();
+    }
+
+    async function createPayment(paymentData) {
+        const response = await fetch('/api/payments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(paymentData)
+        });
+
+        if (!response.ok) throw new Error('Ошибка при обработке платежа.');
+        return response.json();
+    }
+
+    async function createTicket(ticketData) {
+        const response = await fetch('/api/tickets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ticketData)
+        });
+
+        if (!response.ok) throw new Error('Ошибка при создании билета.');
+        return response.json();
+    }
+
+    async function handlePayment(event) {
+        event.preventDefault();
+
+        const userId = getUserIdFromToken();
+        if (!userId) {
+            alert('Ошибка: пользователь не авторизован!');
+            window.location.href = '/login';
+            return;
+        }
+
+        const cardNumber = document.getElementById('cardNumber').value.trim();
+        const cardHolderName = document.getElementById('cardHolderName').value.trim();
+        const expiryDate = document.getElementById('expiryDate').value.trim();
+        const cvv = document.getElementById('cvv').value.trim();
+
+        if (!cardNumber || !cardHolderName || !expiryDate || !cvv) {
+            alert('Пожалуйста, заполните все поля формы.');
+            return;
+        }
+
+        try {
+            const passengerData = JSON.parse(localStorage.getItem('passengerData')) || [];
+            const selectedSeats = JSON.parse(localStorage.getItem('selectedSeats')) || [];
+            const flightData = JSON.parse(localStorage.getItem('selectedFlight')) || {};
+            console.log('flightData:', flightData);
+            console.log('originLocation:', flightData.originLocation);
+            console.log('destinationLocation:', flightData.destinationLocation);
+
+
+            if (!flightData.itineraries || flightData.itineraries.length === 0) {
+                alert("Ошибка: данные о рейсе отсутствуют!");
+                return;
+            }
+
+            const departureDate = flightData.itineraries[0].segments[0].departure.at;
+            const price = flightData.price.total || "0.00";
+            const originLocation = flightData.itineraries[0].segments[0].departure.iataCode;
+            const destinationLocation = flightData.itineraries[0].segments[flightData.itineraries[0].segments.length - 1].arrival.iataCode;
+            const [month, year] = expiryDate.split('/');
+            const expiryISO = `20${year}-${month}-01T00:00:00Z`;
+
+            const flightResponse = await createFlight({
+                departureDate,
+                price,
+                direction: `${originLocation} to ${destinationLocation}`,
+            });
+
+            if (!flightResponse.id) throw new Error("Ошибка при создании рейса.");
+
+            const passengerResponses = await Promise.all(passengerData.map(async (passenger) => {
+    const response = await createPassenger({
+        user_id: userId, 
+        first_name: passenger.firstName,
+        last_name: passenger.lastName,
+        second_name: passenger.patronymic,
+        email: passenger.email,
+    });
+    if (!response.id) throw new Error("Ошибка при создании пассажира.");
+    return response;
+}));
+
+            const paymentResponse = await createPayment({
+    user_id: userId,
+    card_number_last4: cardNumber.slice(-4),
+    card_holder_name: cardHolderName,
+    expiry_date: expiryISO,
+    payment_date: new Date().toISOString(),
+});
+
+            if (!paymentResponse.id) throw new Error("Ошибка при обработке платежа.");
+
+            await Promise.all(passengerResponses.map(async (passengerResponse, index) => {
+                await createTicket({
+                    user_id: userId,
+                    flight_id: flightResponse.id,
+                    passenger_id: passengerResponse.id,
+                    seat_number: selectedSeats[index]?.seat || "N/A",
+                    payments_id: paymentResponse.id,
+                });
+            }));
+
+            alert('Оплата успешно завершена!');
+            sessionStorage.clear();
+            window.location.href = '/profile';
+        } catch (error) {
+            console.error('Ошибка при обработке платежа:', error);
+            alert(error.message || 'Произошла ошибка. Пожалуйста, попробуйте снова.');
+        }
+    }
+
+
+    document.getElementById('paymentForm').addEventListener('submit', handlePayment);
+</script>
+</body>
+</html>

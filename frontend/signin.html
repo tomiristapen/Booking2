@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In</title>
+    <link rel="stylesheet" href="signin.css">
+</head>
+<body>
+<form id="signinForm">
+    <div class="container">
+        <h1>Sign In</h1>
+        <p>Please enter your credentials to sign in.</p>
+        <hr>
+
+        <label for="email"><b>Email</b></label>
+        <input type="text" placeholder="Enter Email" name="email" id="email" required>
+
+        <label for="psw"><b>Password</b></label>
+        <input type="password" placeholder="Enter Password" name="psw" id="psw" required>
+
+        <hr>
+
+        <button type="submit" class="signinbtn">Sign In</button>
+    </div>
+
+    <div class="container forgot">
+        <p>Forgot your password? <a href="#">Reset it here</a>.</p>
+    </div>
+
+    <div class="container signup">
+        <p>Don’t have an account? <a href="registerform.html">Register here</a>.</p>
+    </div>
+</form>
+
+<div id="loginError" class="alert alert-danger d-none" role="alert">
+    Invalid email or password.
+</div>
+
+<script>
+    document.getElementById('signinForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('psw').value;
+
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                localStorage.setItem('authToken', data.token);
+                window.location.href = '/profile.html';
+            } else {
+                document.getElementById('loginError').classList.remove('d-none');
+            }
+        } catch (error) {
+            console.error('Error during login:', error);
+            document.getElementById('loginError').classList.remove('d-none');
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Бронирование билетов</title>
+    <link rel="stylesheet" href="styles2.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">Home</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link d-none" href="/profile">Profile</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link d-none" href="/logout">Logout</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link d-none" href="/signin.html">Sign In</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link d-none" href="/registerform.html">Register</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <h1>Поиск рейсов</h1>
+    <form id="searchForm">
+        <div class="form-group">
+            <label for="origin">Откуда:</label>
+            <input type="text" id="origin" name="origin" required>
+        </div>
+        <div class="form-group">
+            <label for="destination">Куда:</label>
+            <input type="text" id="destination" name="destination" required>
+        </div>
+        <div class="form-group">
+            <label for="date">Дата:</label>
+            <input type="date" id="date" name="date" required>
+        </div>
+        <button type="submit">Поиск рейсов</button>
+    </form>
+
+    <div class="filter-section">
+        <h2>Фильтры</h2>
+        <label for="minPrice">Минимальная цена (€):</label>
+        <input type="number" id="minPrice" placeholder="0">
+
+        <label for="maxPrice">Максимальная цена (€):</label>
+        <input type="number" id="maxPrice" placeholder="1000">
+
+
+        <button id="applyFilters">Применить</button>
+    </div>
+
+
+    <div id="results">
+        <h2>Результаты:</h2>
+        <ul id="flightsList"></ul>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                document.querySelector('.nav-link[href="/signin.html"]').classList.remove('d-none');
+                document.querySelector('.nav-link[href="/registerform.html"]').classList.remove('d-none');
+                return;
+            }
+
+            const response = await fetch('/api/profile', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                document.querySelector('.nav-link[href="/profile"]').classList.remove('d-none');
+                document.querySelector('.nav-link[href="/logout"]').classList.remove('d-none');
+            } else {
+                document.querySelector('.nav-link[href="/signin.html"]').classList.remove('d-none');
+                document.querySelector('.nav-link[href="/registerform.html"]').classList.remove('d-none');
+            }
+        } catch (error) {
+            console.error('Error checking authentication state:', error);
+        }
+    });
+
+    document.getElementById('searchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const origin = document.getElementById('origin').value;
+        const destination = document.getElementById('destination').value;
+        const date = document.getElementById('date').value;
+
+        try {
+            const response = await fetch(`/api/flights?origin=${origin}&destination=${destination}&date=${date}`);
+            const data = await response.json();
+
+            console.log(data);
+
+            const flightsList = document.getElementById('flightsList');
+            flightsList.innerHTML = '';
+
+            if (data.data && data.data.length > 0) {
+                data.data.forEach(flight => {
+                    const originLocation = flight.itineraries ? flight.itineraries[0].segments[0].departure.iataCode : 'Неизвестно';
+                    const destinationLocation = flight.itineraries ? flight.itineraries[0].segments[flight.itineraries[0].segments.length - 1].arrival.iataCode : 'Неизвестно';
+                    const departureDate = flight.itineraries ? flight.itineraries[0].segments[0].departure.at : 'Неизвестно';
+                    const price = flight.price ? flight.price.total : 'Неизвестно';
+
+                    const duration = flight.itineraries && flight.itineraries[0] ? flight.itineraries[0].duration : null;
+                    const formattedDuration = duration ? formatDuration(duration) : 'Неизвестно';
+
+                    const formattedDate = departureDate ? formatDate(departureDate) : 'Неизвестно';
+
+                    const classType = flight.classifications && flight.classifications[0] ? flight.classifications[0].class : 'Неизвестно';
+
+                    const li = document.createElement('li');
+                    li.setAttribute('data-price', price);
+                    li.setAttribute('data-time', formattedDate.split(' ')[1]); // Extract time
+                    li.innerHTML = `
+                    <strong>Направление:</strong> ${originLocation} to ${destinationLocation} <br>
+                    <strong>Дата вылета:</strong> ${formattedDate} <br>
+                   <strong>Продолжительность полета:</strong> ${formattedDuration} <br>
+                    <strong>Цена:</strong> €${price} <br>
+                   <strong>Тип обслуживания:</strong> ${classType} <br>
+                  <button class="select-flight-btn" data-flight='${JSON.stringify(flight)}'>Выбрать рейс</button>
+`;
+                    flightsList.appendChild(li);
+
+                });
+            } else {
+                flightsList.innerHTML = '<li>Нет доступных рейсов</li>';
+            }
+        } catch (error) {
+            console.error('Ошибка при поиске рейсов', error);
+        }
+
+        document.getElementById('flightsList').addEventListener('click', (e) => {
+            if (e.target.classList.contains('select-flight-btn')) {
+                const flightData = JSON.parse(e.target.getAttribute('data-flight'));
+
+                localStorage.setItem('selectedFlight', JSON.stringify(flightData));
+                window.location.href = '/flight-details.html';
+            }
+        });
+    });
+
+    function formatDuration(duration) {
+        const regex = /PT(\d+)H(\d+)M/;
+        const matches = duration.match(regex);
+        if (matches) {
+            const hours = matches[1];
+            const minutes = matches[2];
+            return `${hours}ч ${minutes}мин`;
+        }
+        return 'Неизвестно';
+    }
+
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        const options = {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric',
+            hour12: true,
+        };
+        return date.toLocaleString('ru-RU', options);
+    }
+
+
+    document.getElementById('applyFilters').addEventListener('click', () => {
+        const minPrice = document.getElementById('minPrice').value;
+        const maxPrice = document.getElementById('maxPrice').value;
+
+
+        const flightsList = document.getElementById('flightsList');
+        const flights = Array.from(flightsList.children);
+
+        flights.forEach(flight => {
+            const price = parseFloat(flight.getAttribute('data-price')) || 0;
+
+
+            let matchesPrice = true;
+
+
+            if (minPrice && price < parseFloat(minPrice)) matchesPrice = false;
+            if (maxPrice && price > parseFloat(maxPrice)) matchesPrice = false;
+
+
+
+            // Показ или скрытие рейса
+            if (matchesPrice ) {
+                flight.style.display = 'block';
+            } else {
+                flight.style.display = 'none';
+            }
+        });
+    });
+
+
+</script>
+</body>
+</html>
