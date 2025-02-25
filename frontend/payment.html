@@ -18,6 +18,7 @@
 
     <div id="paymentFormSection" class="mt-4">
         <h2>Детали оплаты</h2>
+        <div id="message-container" class="message-container"></div> <!-- Message container -->
         <form id="paymentForm">
             <div class="mb-3">
                 <label for="cardNumber" class="form-label">Номер карты</label>
@@ -35,7 +36,19 @@
                 <label for="cvv" class="form-label">CVV</label>
                 <input type="password" class="form-control" id="cvv" name="cvv" required pattern="\d{3}">
             </div>
-            <button type="submit" class="btn btn-success">Завершить оплату</button>
+            <!-- Кнопка для отправки кода подтверждения -->
+            <button id="sendCodeBtn" class="btn btn-primary mt-3" onclick="sendVerificationCode()">Отправить код подтверждения</button>
+
+            <!-- Блок для ввода кода (по умолчанию скрыт) -->
+            <div id="verificationSection" style="display: none; margin-top: 15px;">
+                <h3>Введите код подтверждения</h3>
+                <input type="text" id="verificationCode" class="form-control mb-2" placeholder="Введите код" required>
+                <button onclick="verifyCode()" class="btn btn-success">Подтвердить</button>
+            </div>
+
+            <!-- Кнопка "Завершить оплату" (изначально отключена) -->
+            <button id="completePaymentBtn" class="btn btn-success mt-3" disabled>Завершить оплату</button>
+
         </form>
     </div>
 
@@ -79,7 +92,7 @@
     async function createFlight(flightData) {
         const response = await fetch('/api/flights', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(flightData)
         });
 
@@ -90,7 +103,7 @@
     async function createPassenger(passengerData) {
         const response = await fetch('/api/passengers', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(passengerData)
         });
 
@@ -101,7 +114,7 @@
     async function createPayment(paymentData) {
         const response = await fetch('/api/payments', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(paymentData)
         });
 
@@ -112,7 +125,7 @@
     async function createTicket(ticketData) {
         const response = await fetch('/api/tickets', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(ticketData)
         });
 
@@ -125,7 +138,7 @@
 
         const userId = getUserIdFromToken();
         if (!userId) {
-            alert('Ошибка: пользователь не авторизован!');
+            showMessage('Ошибка: пользователь не авторизован!');
             window.location.href = '/login';
             return;
         }
@@ -136,7 +149,7 @@
         const cvv = document.getElementById('cvv').value.trim();
 
         if (!cardNumber || !cardHolderName || !expiryDate || !cvv) {
-            alert('Пожалуйста, заполните все поля формы.');
+            showMessage('Пожалуйста, заполните все поля формы.', 'error');
             return;
         }
 
@@ -150,7 +163,7 @@
 
 
             if (!flightData.itineraries || flightData.itineraries.length === 0) {
-                alert("Ошибка: данные о рейсе отсутствуют!");
+                showMessage("Ошибка: данные о рейсе отсутствуют!", 'error');
                 return;
             }
 
@@ -170,25 +183,25 @@
             if (!flightResponse.id) throw new Error("Ошибка при создании рейса.");
 
             const passengerResponses = await Promise.all(passengerData.map(async (passenger) => {
-    const response = await createPassenger({
-        user_id: userId, 
-        first_name: passenger.firstName,
-        last_name: passenger.lastName,
-        second_name: passenger.patronymic,
-        email: passenger.email,
-    });
-    if (!response.id) throw new Error("Ошибка при создании пассажира.");
-    return response;
-}));
+                const response = await createPassenger({
+                    user_id: userId,
+                    first_name: passenger.firstName,
+                    last_name: passenger.lastName,
+                    second_name: passenger.patronymic,
+                    email: passenger.email,
+                });
+                if (!response.id) throw new Error("Ошибка при создании пассажира.");
+                return response;
+            }));
 
             const paymentResponse = await createPayment({
-    user_id: userId,
-    card_number_last4: cardNumber.slice(-4),
-    card_holder_name: cardHolderName,
-    expiry_date: expiryISO,
-    payment_date: new Date().toISOString(),
-});
-
+                user_id: userId,
+                card_number_last4: cardNumber.slice(-4),
+                card_holder_name: cardHolderName,
+                expiry_date: expiryISO,
+                payment_date: new Date().toISOString(),
+            });
+            sendVerificationCode();
             if (!paymentResponse.id) throw new Error("Ошибка при обработке платежа.");
 
             await Promise.all(passengerResponses.map(async (passengerResponse, index) => {
@@ -201,13 +214,109 @@
                 });
             }));
 
-            alert('Оплата успешно завершена!');
+            ('Оплата успешно завершена!');
             sessionStorage.clear();
             window.location.href = '/profile';
         } catch (error) {
             console.error('Ошибка при обработке платежа:', error);
-            alert(error.message || 'Произошла ошибка. Пожалуйста, попробуйте снова.');
+            showMessage(error.message || 'Произошла ошибка. Пожалуйста, попробуйте снова.', 'error');
         }
+    }
+
+    let userEmail = '';
+
+    async function fetchUserEmail() {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            showMessage("Вы не авторизованы. Пожалуйста, войдите в систему.", 'error');
+            window.location.href = '/signin.html';
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/profile', {
+                method: 'GET',
+                headers: {'Authorization': `Bearer ${token}`}
+            });
+
+            if (!response.ok) throw new Error("Ошибка загрузки профиля");
+
+            const userData = await response.json();
+            userEmail = userData.email;
+        } catch (error) {
+            console.error('Ошибка загрузки email:', error);
+            showMessage("Ошибка загрузки профиля.", 'error');
+        }
+    }
+
+    async function sendVerificationCode() {
+        if (!userEmail) {
+            showMessage('Ошибка: не найден email пользователя!', 'error');
+            return;
+        }
+
+        const response = await fetch('/api/send-verification-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: userEmail })
+        });
+
+        if (response.ok) {
+            showMessage('Код подтверждения отправлен на вашу почту!', 'success');
+            document.getElementById('verificationSection').style.display = 'block';
+            document.getElementById('sendCodeBtn').disabled = true;
+        } else {
+            showMessage('Ошибка при отправке кода подтверждения.', 'error');
+        }
+    }
+
+    async function verifyCode() {
+        const code = document.getElementById('verificationCode').value.trim();
+        if (!code) {
+            showMessage("Введите код подтверждения!", 'error');
+            return;
+        }
+
+        const response = await fetch('/api/verify-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: userEmail, code })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            showMessage(data.message, 'success');
+
+            document.getElementById('completePaymentBtn').disabled = false;
+
+        } else {
+            showMessage(data.error, 'error');
+        }
+    }
+
+    document.getElementById('completePaymentBtn').addEventListener('click', async function() {
+        try {
+            await handlePayment();
+        } catch (error) {
+            console.error('Ошибка при завершении оплаты:', error);
+        }
+    });
+
+
+    document.addEventListener("DOMContentLoaded", fetchUserEmail);
+
+    function showMessage(message, type = 'success') {
+        const messageContainer = document.getElementById('message-container');
+        messageContainer.textContent = message;
+        messageContainer.className = `message-container ${type} show`;
+        messageContainer.style.display = 'block';
+
+        setTimeout(() => {
+            messageContainer.classList.remove('show');
+            setTimeout(() => {
+                messageContainer.style.display = 'none';
+            }, 500);
+        }, 5000);
     }
 
 

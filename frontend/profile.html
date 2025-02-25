@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../public/styles.css">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <a class="navbar-brand" href="/org/example/backend/public">Tigr</a>
+    <a class="navbar-brand" href="index.html">Tigr</a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
     </button>
@@ -26,6 +27,8 @@
         </ul>
     </div>
 </nav>
+
+<div id="message-container" class="message-container"></div> <!-- Message container -->
 
 <div class="container mt-5">
     <div class="profile-container">
@@ -109,17 +112,31 @@
             .then(response => response.json())
             .then(data => {
                 if (data.message === 'Profile updated successfully') {
-                    alert('Profile updated successfully');
+                    showMessage("Profile updated successfully", 'success');
                     localStorage.setItem('profile', JSON.stringify(updatedProfile));
                     displayProfile(updatedProfile);
                     document.querySelector('.edit-profile-container').style.display = 'none';
                     document.querySelector('.profile-container').style.display = 'block';
                 } else {
-                    alert('Error updating profile');
+                    showMessage("Error updating profile", 'error');
                 }
             })
             .catch(error => console.error('Error updating profile:', error));
     });
+
+    function showMessage(message, type = 'success') {
+    const messageContainer = document.getElementById('message-container');
+    messageContainer.textContent = message;
+    messageContainer.className = `message-container ${type} show`;
+    messageContainer.style.display = 'block';
+
+    setTimeout(() => {
+        messageContainer.classList.remove('show');
+        setTimeout(() => {
+            messageContainer.style.display = 'none';
+        }, 500); // Wait for the fade-out animation to complete
+    }, 5000);
+    }
 
     function displayProfile(profile) {
         document.getElementById('profile-name').textContent = `Name: ${profile.name}`;
@@ -130,7 +147,7 @@
     document.addEventListener("DOMContentLoaded", async () => {
         const token = localStorage.getItem('authToken');
         if (!token) {
-            alert("You are not authorized. Please log in again.");
+            showMessage("You are not authorized. Please log in again.", 'error');
             window.location.href = '/signin.html';
             return;
         }
@@ -175,6 +192,7 @@
                         <p><strong>Passengers:</strong> ${ticket.passenger_count}</p>
                         <h6>Passenger Details:</h6>
                         <ul>${passengers}</ul>
+
                     `;
                         ticketList.appendChild(li);
                     });
@@ -184,7 +202,7 @@
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Error loading profile. Please try again.');
+            showMessage("Error loading profile. Please try again.", 'error');
             localStorage.removeItem('authToken');
             window.location.href = '/signin.html';
         }

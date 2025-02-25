@@ -127,17 +127,14 @@
 
                     const formattedDate = departureDate ? formatDate(departureDate) : 'Неизвестно';
 
-                    const classType = flight.classifications && flight.classifications[0] ? flight.classifications[0].class : 'Неизвестно';
-
                     const li = document.createElement('li');
                     li.setAttribute('data-price', price);
-                    li.setAttribute('data-time', formattedDate.split(' ')[1]); // Extract time
+                    li.setAttribute('data-time', formattedDate.split(' ')[1]);
                     li.innerHTML = `
                     <strong>Направление:</strong> ${originLocation} to ${destinationLocation} <br>
                     <strong>Дата вылета:</strong> ${formattedDate} <br>
                    <strong>Продолжительность полета:</strong> ${formattedDuration} <br>
                     <strong>Цена:</strong> €${price} <br>
-                   <strong>Тип обслуживания:</strong> ${classType} <br>
                   <button class="select-flight-btn" data-flight='${JSON.stringify(flight)}'>Выбрать рейс</button>
 `;
                     flightsList.appendChild(li);

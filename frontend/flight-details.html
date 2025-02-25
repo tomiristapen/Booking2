@@ -18,7 +18,7 @@
         <form id="purchaseForm">
             <div class="mb-3">
                 <label for="numTickets" class="form-label">Количество билетов</label>
-                <input type="number" class="form-control" id="numTickets" name="numTickets" min="1" value="1" required>
+                <input type="number" class="form-control" id="numTickets" name="numTickets" min="0" value="0" required>
             </div>
 
             <div class="mb-3">
@@ -135,6 +135,7 @@
                     <label for="passengerEmail${i}" class="form-label">Электронная почта</label>
                     <input type="email" class="form-control" id="passengerEmail${i}" name="passengerEmail${i}" required>
                 </div>
+
                 <div class="mb-3">
                     <label for="passengerCitizenship${i}" class="form-label">Гражданство</label>
                     <input type="text" class="form-control" id="passengerCitizenship${i}" name="passengerCitizenship${i}" required>
@@ -143,7 +144,23 @@
             passengerFormsContainer.appendChild(passengerForm);
         }
     });
+    let canResendCode = true;
 
+
+
+    function showMessage(message, type = 'success') {
+    const messageContainer = document.getElementById('message-container');
+    messageContainer.textContent = message;
+    messageContainer.className = `message-container ${type} show`;
+    messageContainer.style.display = 'block';
+
+    setTimeout(() => {
+        messageContainer.classList.remove('show');
+        setTimeout(() => {
+            messageContainer.style.display = 'none';
+        }, 500); // Wait for the fade-out animation to complete
+    }, 5000);
+}
 
     document.getElementById('purchaseForm').addEventListener('submit', function(e) {
         e.preventDefault();

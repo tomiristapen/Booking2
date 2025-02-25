@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert(data.message);
+                showMessage(data.message, 'success');
             } else {
                 displayProfile(data);
                 localStorage.setItem('profile', JSON.stringify(data));
@@ -46,13 +46,13 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(response => response.json())
             .then(data => {
                 if (data.message === 'Profile updated successfully') {
-                    alert('Profile updated successfully');
+                    showMessage("Profile updated successfully!", 'success');
                     localStorage.setItem('profile', JSON.stringify(updatedProfile));
                     displayProfile(updatedProfile);
                     document.querySelector('.edit-profile-container').style.display = 'none';
                     document.querySelector('.profile-container').style.display = 'block';
                 } else {
-                    alert('Error updating profile');
+                    showMessage("Error updating profile", 'error');
                 }
             })
             .catch(error => console.error('Error updating profile:', error));
@@ -72,4 +72,18 @@ function displayProfile(profile) {
         li.classList.add('list-group-item');
         ticketList.appendChild(li);
     });
+}
+
+function showMessage(message, type = 'success') {
+    const messageContainer = document.getElementById('message-container');
+    messageContainer.textContent = message;
+    messageContainer.className = `message-container ${type} show`;
+    messageContainer.style.display = 'block';
+
+    setTimeout(() => {
+        messageContainer.classList.remove('show');
+        setTimeout(() => {
+            messageContainer.style.display = 'none';
+        }, 500); // Wait for the fade-out animation to complete
+    }, 5000);
 }

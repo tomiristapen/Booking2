@@ -10,35 +10,36 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-const sendVerificationCode = async (req, res) => {
+router.post('/api/send-verification-code', async (req, res) => {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email обязателен' });
+    if (!email) {
+        return res.status(400).json({ error: 'Email обязателен' });
+    }
 
     const code = crypto.randomInt(100000, 999999).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await client.query(`
-        INSERT INTO verification_codes (email, code, expires_at)
-        VALUES ($1, $2, $3)
-            ON CONFLICT (email) DO UPDATE
-                                       SET code = $2, expires_at = $3
-    `, [email, code, expiresAt]);
-
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Код подтверждения оплаты',
-        text: `Ваш код подтверждения: ${code}\nЭтот код действителен в течение 5 минут.`
-    };
-
     try {
-        await transporter.sendMail(mailOptions);
+        await client.query(`
+            INSERT INTO verification_codes (email, code, expires_at)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (email) DO UPDATE
+            SET code = $2, expires_at = $3
+        `, [email, code, expiresAt]);
+
+        await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Код подтверждения',
+            text: `Ваш код: ${code}\nДействителен 5 минут.`
+        });
+
         res.json({ message: 'Код отправлен' });
     } catch (error) {
-        console.error('Ошибка отправки email:', error);
-        res.status(500).json({ error: 'Ошибка при отправке email' });
+        console.error('Ошибка:', error);
+        res.status(500).json({ error: 'Ошибка при отправке кода' });
     }
-};
+});
 
 const verifyCode = async (req, res) => {
     const { email, code } = req.body;
